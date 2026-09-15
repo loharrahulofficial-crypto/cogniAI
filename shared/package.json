@@ -1,0 +1,13 @@
+{
+  "name": "@unnati/shared",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "generate:types": "openapi-typescript ../backend/core-api/src/openapi.json -o ./types/api.d.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.4.4",
+    "typescript": "^5.5.0"
+  }
+}
