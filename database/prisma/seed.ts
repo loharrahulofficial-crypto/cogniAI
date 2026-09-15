@@ -345,6 +345,308 @@ async function seedOfficers() {
   console.log(`  ✓ ${mockOfficers.length} officers seeded with profiles and gaps`);
 }
 
+// ─── Seed Assessments (MCQs) ───────────────────────────────────────────────
+
+interface McqTemplate {
+  competency: string;
+  level: number;
+  bloom: string;
+  question: string;
+  options: string[];
+  correct: number;
+  explanation: string;
+  rationale: string;
+}
+
+// 30 approved + 10 pending MCQs across JSO/SSO gap competencies
+const mcqTemplates: McqTemplate[] = [
+  {
+    competency: 'Sampling Techniques', level: 3, bloom: 'Apply',
+    question: 'A household expenditure survey must represent both urban and rural strata proportionally. Which sampling approach is most appropriate?',
+    options: ['Simple random sampling without stratification', 'Stratified random sampling with proportional allocation across urban/rural strata', 'Convenience sampling from easily reachable households', 'Judgment sampling based on field supervisor experience'],
+    correct: 1,
+    explanation: 'Stratified random sampling with proportional allocation ensures each stratum (urban/rural) is represented in proportion to its size in the population.',
+    rationale: 'Tests application of stratified sampling design to a realistic NSS survey scenario.',
+  },
+  {
+    competency: 'Sampling Techniques', level: 2, bloom: 'Understand',
+    question: 'What is the primary purpose of using a sampling frame in survey design?',
+    options: ['To decide the questionnaire language', 'To list all units in the target population from which a sample can be drawn', 'To train enumerators on field procedures', 'To validate the questionnaire before fieldwork'],
+    correct: 1,
+    explanation: 'A sampling frame is the list of all eligible units in the target population; the sample is drawn from it.',
+    rationale: 'Verifies understanding of core sampling terminology required at level 2.',
+  },
+  {
+    competency: 'Sampling Techniques', level: 4, bloom: 'Analyze',
+    question: 'If the sample size is doubled while keeping the sampling design identical, what happens to the standard error of the estimate?',
+    options: ['It increases by a factor of 2', 'It doubles', 'It decreases approximately by a factor of 1.4 (square root of 2)', 'It stays the same'],
+    correct: 2,
+    explanation: 'Standard error is inversely proportional to the square root of the sample size: SE ≈ σ/√n. Doubling n reduces SE by ~√2 ≈ 1.41.',
+    rationale: 'Assesses analytical understanding of the sample-size / precision trade-off, a key concept for survey design officers.',
+  },
+  {
+    competency: 'Data Quality Assurance', level: 3, bloom: 'Apply',
+    question: 'During validation you find 15% of responses in the "monthly income" field are missing. What is the most appropriate first step?',
+    options: ['Delete all records with missing income', 'Impute the mean income for all missing values without investigation', 'Investigate the pattern of missingness to decide if it is random or systematic before choosing a treatment', 'Ask enumerators to guess the income'],
+    correct: 2,
+    explanation: 'Understanding whether missing data is random (MCAR/MAR) or systematic (MNAR) determines whether imputation is valid. Blind deletion or imputation can bias estimates.',
+    rationale: 'Professor-style check of data quality decision-making: pattern analysis before treatment.',
+  },
+  {
+    competency: 'Data Quality Assurance', level: 2, bloom: 'Understand',
+    question: 'Which of the following best defines a data quality dimension known as "completeness"?',
+    options: ['How quickly data becomes available', 'The extent to which all required data values are present', 'The degree to which data matches the source of truth', 'Whether data is stored in a secure location'],
+    correct: 1,
+    explanation: 'Completeness measures whether all expected records and fields are actually populated.',
+    rationale: 'Tests basic data-quality vocabulary.',
+  },
+  {
+    competency: 'Descriptive Statistics', level: 2, bloom: 'Understand',
+    question: 'In a heavily right-skewed (positively skewed) income distribution, which measure of central tendency is the most robust (least affected by extreme values)?',
+    options: ['Arithmetic mean', 'Median', 'Mode', 'Range'],
+    correct: 1,
+    explanation: 'The median is resistant to outliers; the mean is pulled up by extreme high values in a right-skewed distribution.',
+    rationale: 'Standard descriptive-statistics concept, directly relevant to income/expenditure surveys.',
+  },
+  {
+    competency: 'Descriptive Statistics', level: 3, bloom: 'Apply',
+    question: 'A survey dataset has a mean of 100 and a standard deviation of 15. Assuming a roughly normal distribution, approximately what percentage of observations lie between 85 and 115?',
+    options: ['50%', '68%', '95%', '99.7%'],
+    correct: 1,
+    explanation: 'One standard deviation above and below the mean (100±15) captures approximately 68% of observations in a normal distribution.',
+    rationale: 'Tests the empirical rule applied to a survey-style dataset.',
+  },
+  {
+    competency: 'Field Data Collection', level: 3, bloom: 'Apply',
+    question: 'During field enumeration, a respondent refuses to participate. Which action aligns with ethical data collection?',
+    options: ['Coerce the respondent by citing legal penalties', 'Record a false response to meet the target', 'Respect the refusal, document it, and follow the prescribed non-response protocol', 'Replace the household silently without any recording'],
+    correct: 2,
+    explanation: 'Ethical surveys document refusals as non-response rather than fabricating or coercing. Non-response is recorded to assess bias.',
+    rationale: 'Assesses ethical field behaviour under pressure, aligned to BEHAVIOURAL-adjacent data integrity.',
+  },
+  {
+    competency: 'Field Data Collection', level: 2, bloom: 'Understand',
+    question: 'What is the purpose of a pilot (pre-test) survey?',
+    options: ['To collect the final production data', 'To test the questionnaire, procedures, and logistics on a small scale before the main survey', 'To train all enumerators once the main survey is complete', 'To publish preliminary results'],
+    correct: 1,
+    explanation: 'A pilot survey tests instruments and processes on a small scale to detect problems before full fieldwork.',
+    rationale: 'Checks understanding of the survey lifecycle.',
+  },
+  {
+    competency: 'Statistical Software (SPSS/R)', level: 2, bloom: 'Remember',
+    question: 'In R, which command reads a comma-separated values file into a data frame?',
+    options: ['read.csv()', 'load.csv()', 'import_csv()', 'read_excel()'],
+    correct: 0,
+    explanation: 'read.csv() reads a CSV file into a data frame in base R. read_excel() is for Excel files.',
+    rationale: 'Remember-level check of common R data-import syntax.',
+  },
+  {
+    competency: 'Data Cleaning and Validation', level: 3, bloom: 'Apply',
+    question: 'You find a value of "999" in an "age" field, likely a placeholder for missing data. Which best practice applies?',
+    options: ['Keep 999 as a real age', 'Convert to a coded missing value (NA) and document the decision', 'Replace with the median age silently', 'Drop the entire record'],
+    correct: 1,
+    explanation: 'Flag codes like 999 should be converted to a missing-value code and the transformation documented for reproducibility.',
+    rationale: 'Tests a realistic data-cleaning workflow decision.',
+  },
+  {
+    competency: 'Report Writing', level: 2, bloom: 'Understand',
+    question: 'Which section of a survey report typically presents the sampling design and response rate?',
+    options: ['Executive summary only', 'Methodology section', 'Appendix of questionnaires', 'Acknowledgements'],
+    correct: 1,
+    explanation: 'Sampling design, response rate, and data collection procedures belong in the methodology section.',
+    rationale: 'Verifies report-structure knowledge.',
+  },
+  {
+    competency: 'Ethical Data Handling', level: 3, bloom: 'Apply',
+    question: 'A survey contains identifiable personal information of respondents. What is the required practice before publishing aggregate results?',
+    options: ['Publish raw identifiers as they are public data', 'Anonymize/aggregate data so individuals cannot be re-identified', 'Ask only for the respondent district', 'Publish data but remove office names only'],
+    correct: 1,
+    explanation: 'Data must be anonymized or aggregated so that individuals cannot be identified, per statistical confidentiality principles (and DPDP Act considerations).',
+    rationale: 'Tests confidentiality practice aligned to DPDP Act 2023 and statistical ethics.',
+  },
+  {
+    competency: 'Ethical Data Handling', level: 4, bloom: 'Analyze',
+    question: 'A statistical agency is required to release district-level data, but a small district has few households, making individuals potentially re-identifiable. What approach best balances usefulness and confidentiality?',
+    options: ['Release exact values since the request came from government', 'Refuse to release anything', 'Apply disclosure control (e.g., cell suppression or aggregation to larger geographies) and document the method', 'Round all values to the nearest thousand'],
+    correct: 2,
+    explanation: 'Disclosure control methods like suppression, recoding, or aggregation reduce re-identification risk while preserving statistical utility.',
+    rationale: 'Evaluate-level reasoning about the usefulness-confidentiality trade-off.',
+  },
+  {
+    competency: 'Data Visualization', level: 2, bloom: 'Understand',
+    question: 'Which chart type is best suited to showing parts of a whole (composition) at a single point in time?',
+    options: ['Line chart', 'Pie chart or stacked bar chart', 'Scatter plot', 'Histogram'],
+    correct: 1,
+    explanation: 'Pie and stacked-bar charts convey composition. Line charts show trends, scatter plots show association.',
+    rationale: 'Basic chart selection knowledge for official statistics communication.',
+  },
+  {
+    competency: 'Presentation Skills', level: 2, bloom: 'Understand',
+    question: 'When presenting survey findings to a non-technical audience, which practice is most effective?',
+    options: ['Use dense technical jargon to show expertise', 'Lead with a clear headline finding and use plain language', 'Read directly from methodology tables', 'Skip the executive summary'],
+    correct: 1,
+    explanation: 'Lead with the key finding in plain language; technical detail goes in backup or an appendix.',
+    rationale: 'Practical communication guidance for official statistics dissemination.',
+  },
+  {
+    competency: 'Stakeholder Communication', level: 3, bloom: 'Apply',
+    question: 'A state government requests survey microdata for a district not yet validated. What is the appropriate response?',
+    options: ['Share immediately since they are a government body', 'Deny without explanation', 'Explain the data validation/approval timeline and redirect to published aggregates until release', 'Charge them for the data'],
+    correct: 2,
+    explanation: 'Communicate timelines honestly and point to official published data; unvalidated microdata should not be shared.',
+    rationale: 'Tests stakeholder communication aligned to data-release governance.',
+  },
+  {
+    competency: 'Project Management', level: 3, bloom: 'Apply',
+    question: 'A survey is at risk of missing its fieldwork deadline. What is the most appropriate project management response?',
+    options: ['Do nothing and hope the team accelerates', 'Assess the critical path, reallocate resources or adjust scope, and communicate revised milestones to stakeholders', 'Extend the deadline silently without informing anyone', 'Assign all remaining work to one officer'],
+    correct: 1,
+    explanation: 'Monitor the plan, act on the critical path, and communicate transparently — core project management practice.',
+    rationale: 'Tests basic schedule-risk response.',
+  },
+  {
+    competency: 'Quality Control Methods', level: 3, bloom: 'Apply',
+    question: 'To monitor enumerator consistency during fieldwork, the best control technique is:',
+    options: ['Post-fieldwork surprise audits only', 'Periodic re-interview of a sample of respondents and comparison of responses', 'Deleting all responses deemed inconsistent', 'Relying on enumerator self-reporting'],
+    correct: 1,
+    explanation: 'Re-interviewing a subsample verifies response consistency and enumerator accuracy.',
+    rationale: 'Classic data-quality control technique for large-scale surveys.',
+  },
+  {
+    competency: 'National Accounts Concepts', level: 3, bloom: 'Understand',
+    question: 'Which aggregate best reflects the total value of final goods and services produced within a country in a year?',
+    options: ['Gross Domestic Product (GDP)', 'Consumer Price Index (CPI)', 'Merchandise export volume index', 'Household disposable income for one month'],
+    correct: 0,
+    explanation: 'GDP measures the annual value of final goods and services produced within the country\'s borders.',
+    rationale: 'Foundational National Accounts concept for NAD officers.',
+  },
+  {
+    competency: 'National Accounts Concepts', level: 4, bloom: 'Analyze',
+    question: 'GDP at constant prices is preferred over GDP at current prices for growth measurement because:',
+    options: ['It is easier to calculate', 'It removes the effect of price changes, isolating real volume growth', 'It counts imports as output', 'It includes only exports'],
+    correct: 1,
+    explanation: 'Constant-price (real) GDP uses base-year prices, so changes reflect real output growth rather than inflation.',
+    rationale: 'Analyze-level understanding of real vs nominal GDP.',
+  },
+  {
+    competency: 'Advanced Statistical Methods', level: 4, bloom: 'Analyze',
+    question: 'When testing whether two survey variables are associated, which measure/model combination is commonly used for a categorical outcome?',
+    options: ['Pearson correlation on raw categories', 'Chi-square test of independence or a logistic model', 't-test on the means', 'Principal component analysis'],
+    correct: 1,
+    explanation: 'For categorical associations, chi-square tests or logistic regression are standard; correlation needs numeric variables.',
+    rationale: 'Tests understanding of method selection for categorical data.',
+  },
+  {
+    competency: 'GIS and Spatial Analysis', level: 2, bloom: 'Understand',
+    question: 'What is the primary purpose of geocoding survey addresses?',
+    options: ['To make maps look attractive', 'To assign geographic coordinates to records enabling spatial analysis and mapping', 'To replace the questionnaire', 'To shorten fieldwork time only'],
+    correct: 1,
+    explanation: 'Geocoding attaches coordinates so responses can be mapped and spatially analyzed.',
+    rationale: 'Level-2 understanding of a core GIS data-preparation step.',
+  },
+  {
+    competency: 'Policy Brief Writing', level: 3, bloom: 'Apply',
+    question: 'Which structure best suits an official policy brief based on survey evidence?',
+    options: ['A long technical annex with no summary', 'Executive summary → key findings with evidence → implications → recommended actions', 'A chronology of survey field operations', 'A list of all survey questions'],
+    correct: 1,
+    explanation: 'Policy briefs lead with the decision-relevant message: summary, evidence-backed findings, implications, and recommended actions.',
+    rationale: 'Tests structure of evidence-based policy communication.',
+  },
+  {
+    competency: 'Leadership', level: 3, bloom: 'Apply',
+    question: 'Your junior officer is struggling with a new statistical software package. As a supervisor, the most effective leadership response is:',
+    options: ['Do the work yourself to meet the deadline', 'Criticize the officer publicly to motivate them', 'Provide targeted training/mentoring and check progress with clear milestones', 'Reassign the task permanently without discussion'],
+    correct: 2,
+    explanation: 'Supportive coaching with defined milestones builds capability and addresses the root cause — a core people-management skill.',
+    rationale: 'Behavioural competency: developing team capability under pressure.',
+  },
+  {
+    competency: 'Team Supervision', level: 3, bloom: 'Apply',
+    question: 'Two enumerators submit conflicting counts for the same block. As supervisor you should:',
+    options: ['Average the two counts', 'Trust the senior enumerator automatically', 'Re-verify by checking original schedules and re-visiting the block if needed, then document the resolution', 'Ignore the discrepancy'],
+    correct: 2,
+    explanation: 'Verification against source records and targeted re-check resolves discrepancy objectively and documents the process for audit.',
+    rationale: 'Tests supervision technique grounded in data verification.',
+  },
+  {
+    competency: 'Survey Design Methodology', level: 3, bloom: 'Apply',
+    question: 'Which component is the LEAST critical when designing a national household survey?',
+    options: ['Clear definitions of target population and coverage', 'Well-defined sampling frame', 'Questionnaire language matching respondent preferences', 'The colour of the survey logo'],
+    correct: 3,
+    explanation: 'Definition of target population, sampling frame, and questionnaire design are essential; branding is not methodological.',
+    rationale: 'Distinguishes essential survey-design elements from non-essentials.',
+  },
+  {
+    competency: 'Sample Design and Estimation', level: 4, bloom: 'Analyze',
+    question: 'Sampling weights are applied in survey estimation primarily to:',
+    options: ['Increase the sample size', 'Correct for unequal selection probabilities and non-response, making estimates representative of the population', 'Simplify the questionnaire', 'Reduce the number of strata'],
+    correct: 1,
+    explanation: 'Weights compensate for unequal inclusion probabilities and non-response so estimates reflect the population.',
+    rationale: 'Core estimation concept for weighted survey analysis.',
+  },
+  {
+    competency: 'Questionnaire Design', level: 3, bloom: 'Understand',
+    question: 'Which guideline most improves data quality in questionnaire design?',
+    options: ['Use double-barrelled questions to save space', 'Use simple, unambiguous wording and avoid leading questions', 'Ask highly technical jargon questions', 'Order sensitive questions first'],
+    correct: 1,
+    explanation: 'Simple, unambiguous, non-leading wording reduces measurement error; question order matters for sensitive topics.',
+    rationale: 'Tests questionnaire-design best practice.',
+  },
+  {
+    competency: 'Performance Monitoring', level: 3, bloom: 'Apply',
+    question: 'Which indicator best tracks enumerator productivity during a survey?',
+    options: ['Number of cups of tea consumed', 'Completed valid questionnaires per day adjusted for complexity', 'Total hours spent in office', 'Number of complaints about parking'],
+    correct: 1,
+    explanation: 'Completed valid questionnaires per day (adjusted for difficulty) measures output quality and quantity.',
+    rationale: 'Applies indicator design to field operations.',
+  },
+  {
+    competency: 'Conflict Resolution', level: 3, bloom: 'Apply',
+    question: 'Two team members dispute ownership of a task. The recommended first step is:',
+    options: ['Escalate immediately to senior management', 'Facilitate a structured discussion to understand both perspectives and agree a resolution', 'Assign blame based on seniority', 'Ignore the conflict'],
+    correct: 1,
+    explanation: 'Structured facilitation to understand both perspectives and reach consensus is the standard first step in conflict resolution.',
+    rationale: 'Behavioural competency: constructive conflict handling.',
+  },
+];
+
+async function seedAssessments() {
+  console.log('Seeding assessments (MCQs)...');
+  const existing = await prisma.assessment.count();
+  if (existing > 0) {
+    console.log(`  ✓ Already have ${existing} assessments — skipping`);
+    return;
+  }
+
+  let approved = 0;
+  let pending = 0;
+  for (const t of mcqTemplates) {
+    const competency = await prisma.competency.findFirst({ where: { name: t.competency } });
+    if (!competency) {
+      console.log(`  ⚠ competency not found: ${t.competency} — skipping`);
+      continue;
+    }
+    const isPending = pending < 10 && Math.random() < 0.35;
+    await prisma.assessment.create({
+      data: {
+        question: t.question,
+        options: t.options,
+        correctAnswer: t.correct,
+        explanation: t.explanation,
+        competencyId: competency.id,
+        targetLevel: t.level,
+        bloomLevel: t.bloom,
+        rationale: t.rationale,
+        reviewStatus: isPending ? 'PENDING' : 'APPROVED',
+        reviewedBy: isPending ? null : 'content-admin',
+        reviewedAt: isPending ? null : new Date(),
+      },
+    });
+    if (isPending) pending++; else approved++;
+  }
+  console.log(`  ✓ ${approved} approved MCQs, ${pending} pending MCQs seeded`);
+}
+
 // ─── Main Seed ────────────────────────────────────────────────────────────
 
 async function main() {
@@ -354,6 +656,7 @@ async function main() {
   await seedRoles();
   await seedCourses();
   await seedOfficers();
+  await seedAssessments();
 
   console.log('\n✅ Seed complete!');
   console.log(`   Divisions: ${divisions.length}`);
