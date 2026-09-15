@@ -1,0 +1,23 @@
+{
+  "name": "unnati",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend/*",
+    "shared"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=frontend",
+    "dev:core-api": "npm run start:dev --workspace=backend/core-api",
+    "dev:ai-service": "cd backend/ai-service && uvicorn main:app --reload",
+    "build:web": "npm run build --workspace=frontend",
+    "build:core-api": "npm run build --workspace=backend/core-api",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:migrate": "cd database && npx prisma migrate dev",
+    "db:seed": "cd database && npx prisma db seed",
+    "db:studio": "cd database && npx prisma studio",
+    "generate:types": "cd shared && npm run generate"
+  }
+}
