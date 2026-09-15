@@ -77,6 +77,20 @@ export interface GapRecord {
   recommendedCourseIds: string[]
 }
 
+export interface Recommendation {
+  id: string
+  officerId: string
+  courseId: string
+  rationale: string
+  priority: number
+  course: {
+    name: string
+    source: string
+    organisation: string
+    duration: string
+  }
+}
+
 // ── Fetchers ─────────────────────────────────────────────────────────────────
 
 export const api = {
@@ -86,5 +100,6 @@ export const api = {
   competencies: () => fetchJSON<Competency[]>('/competencies'),
   courses: () => fetchJSON<Course[]>('/courses'),
   gaps: (officerId: string) => fetchJSON<GapRecord[]>(`/gaps/officer/${officerId}`),
+  recommendations: (officerId: string) => fetchJSON<Recommendation[]>(`/recommendations/officer/${officerId}`),
   heatmap: (divisionId: string) => fetchJSON<Record<string, unknown>>(`/gaps/division/${divisionId}/heatmap`),
 }

@@ -10,6 +10,10 @@ const DEMO_OFFICER_ID = '6e5f26b0-1cd8-4669-90db-d9d3f543d2b9'
 export function Dashboard() {
   const { data: officer } = useQuery({ queryKey: ['officer', DEMO_OFFICER_ID], queryFn: () => api.officer(DEMO_OFFICER_ID) })
   const { data: gaps } = useQuery({ queryKey: ['gaps', DEMO_OFFICER_ID], queryFn: () => api.gaps(DEMO_OFFICER_ID) })
+  const { data: recommendations } = useQuery({
+    queryKey: ['recommendations', DEMO_OFFICER_ID],
+    queryFn: () => api.recommendations(DEMO_OFFICER_ID),
+  })
 
   const competencies = officer?.competencies ?? []
   const avgProficiency = competencies.length > 0
@@ -18,11 +22,13 @@ export function Dashboard() {
 
   const highGaps = gaps?.filter((g) => g.priority === 'HIGH') ?? []
   const medGaps = gaps?.filter((g) => g.priority === 'MED') ?? []
+  const criticalGaps = highGaps.length + medGaps.length
+  const courseCount = recommendations?.length ?? 0
 
   const stats = [
     { label: 'Overall Proficiency', value: `${avgProficiency} / 5`, icon: TrendingUp, trend: `${competencies.length} competencies tracked` },
-    { label: 'Critical Gaps', value: String(highGaps.length + medGaps.length), icon: AlertTriangle, trend: `${highGaps.length} high priority` },
-    { label: 'Courses Available', value: String(officer?.competencies?.length ?? 0), icon: BookOpen, trend: 'Mapped to your gaps' },
+    { label: 'Critical Gaps', value: String(criticalGaps), icon: AlertTriangle, trend: `${highGaps.length} high priority` },
+    { label: 'Recommended Courses', value: String(courseCount), icon: BookOpen, trend: 'Mapped to your gaps' },
   ]
 
   return (
@@ -92,6 +98,31 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recommended Courses</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {recommendations && recommendations.length > 0 ? recommendations.slice(0, 6).map((rec) => (
+              <div key={rec.id} className="flex items-start justify-between gap-4 rounded-lg border p-3">
+                <div className="min-w-0">
+                  <p className="font-medium">{rec.course.name}</p>
+                  <p className="text-sm text-muted-foreground">{rec.rationale}</p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <span className="rounded-full bg-frac-domain/10 px-2 py-1 text-xs font-medium text-frac-domain">
+                    {rec.course.source}
+                  </span>
+                </div>
+              </div>
+            )) : (
+              <p className="text-sm text-muted-foreground">No recommendations yet.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
