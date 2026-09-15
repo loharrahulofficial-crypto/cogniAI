@@ -4,11 +4,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class CreateOfficerDto {
   @ApiProperty({ example: 'Priya Sharma' })
   @IsString()
-  name: string;
+  name!: string;
 
   @ApiProperty({ example: 'priya.sharma@mospi.gov.in' })
   @IsEmail()
-  email: string;
+  email!: string;
 
   @ApiPropertyOptional({ example: 'JSO' })
   @IsString()
@@ -17,7 +17,7 @@ export class CreateOfficerDto {
 
   @ApiProperty({ description: 'Division ID' })
   @IsString()
-  divisionId: string;
+  divisionId!: string;
 
   @ApiPropertyOptional({ example: '3 years' })
   @IsString()
