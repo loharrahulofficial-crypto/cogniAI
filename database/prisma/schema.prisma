@@ -1,0 +1,351 @@
+// ─── UNNATI Prisma Schema ────────────────────────────────────────────────────
+// UNNATI — AI-enabled competency-gap and adaptive learning platform for MoSPI
+// Follows FRAC shape: Role → Activity → Competency → ProficiencyLevel
+// Categories: BEHAVIOURAL | DOMAIN | FUNCTIONAL (never a 4th)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum CompetencyCategory {
+  BEHAVIOURAL
+  DOMAIN
+  FUNCTIONAL
+}
+
+enum ProficiencyEvidenceSource {
+  SELF
+  SUPERVISOR
+  QUIZ
+  AI_INFERRED
+}
+
+enum GapPriority {
+  HIGH
+  MED
+  LOW
+}
+
+enum MCQReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ACBPLens {
+  NATIONAL_PRIORITIES
+  EMERGING_TECH
+  CITIZEN_CENTRICITY
+}
+
+enum ACBPStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+}
+
+enum InterventionType {
+  TRAINING
+  NON_TRAINING
+}
+
+// ─── MoSPI Divisions ────────────────────────────────────────────────────────
+
+model Division {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String   @unique
+  wing      String   // "NSS" | "Statistics" | "Other"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  officers    Officer[]
+  acbpDocs    ACBPDocument[]
+}
+
+// ─── FRAC: Roles ────────────────────────────────────────────────────────────
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  description String?
+  cadre       String?  // "ISS" | "SSS" | "JSO" | "SSO"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  activities Activity[]
+}
+
+// ─── FRAC: Activities ──────────────────────────────────────────────────────
+
+model Activity {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  roleId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  role         Role          @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  competencies Competency[]
+}
+
+// ─── FRAC: Competencies ────────────────────────────────────────────────────
+
+model Competency {
+  id          String             @id @default(uuid())
+  name        String
+  description String?
+  category    CompetencyCategory // BEHAVIOURAL | DOMAIN | FUNCTIONAL
+  subjectTag  String?            // "Sampling Theory" | "National Accounts" | "GIS" etc. (secondary)
+  activityId  String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  activity         Activity                @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  proficiencyLevels ProficiencyLevel[]
+  assessments       Assessment[]
+  officerProfiles   OfficerCompetencyProfile[]
+  gapRecords        GapRecord[]
+  courses           CourseCompetency[]
+}
+
+// ─── FRAC: Proficiency Levels (1-5) ────────────────────────────────────────
+
+model ProficiencyLevel {
+  id            String   @id @default(uuid())
+  level         Int      // 1-5
+  label         String   // "Unaware" | "Aware" | "Applies w/ guidance" | "Independent" | "Expert"
+  anchor        String?  // Description of what this level looks like
+  competencyId  String
+
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@unique([competencyId, level])
+}
+
+// ─── Officers ──────────────────────────────────────────────────────────────
+
+model Officer {
+  id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
+  cadre       String?  // "ISS" | "SSS" | "JSO" | "SSO"
+  divisionId  String
+  tenure      String?  // "Years of service"
+  posting     String?  // "Current posting location"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  division         Division                @relation(fields: [divisionId], references: [id])
+  competencies     OfficerCompetencyProfile[]
+  gapRecords       GapRecord[]
+  quizzesTaken     QuizResult[]
+  recommendations  Recommendation[]
+}
+
+// ─── Officer Competency Profile ────────────────────────────────────────────
+
+model OfficerCompetencyProfile {
+  id              String                    @id @default(uuid())
+  officerId       String
+  competencyId    String
+  currentLevel    Int                       // 1-5
+  targetLevel     Int                       // 1-5
+  evidenceSource  ProficiencyEvidenceSource // SELF | SUPERVISOR | QUIZ | AI_INFERRED
+  lastAssessedAt  DateTime                  @default(now())
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  officer    Officer    @relation(fields: [officerId], references: [id], onDelete: Cascade)
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@unique([officerId, competencyId])
+}
+
+// ─── Courses (Sunbird Knowlg compatible) ────────────────────────────────────
+
+model Course {
+  id               String   @id @default(uuid())
+  identifier       String   @unique // Sunbird content identifier
+  name             String
+  description      String?
+  learningOutcome  String?
+  source           String   // "IGOT" | "NSSTA_TPAC" | "INTERNAL"
+  channel          String?  // Sunbird: channel
+  contentType      String?  // Sunbird: contentType
+  primaryCategory  String?  // Sunbird: primaryCategory
+  mimeType         String?  // Sunbird: mimeType
+  status           String   @default("Live")
+  organisation     String?
+  author           String?
+  duration         String?
+  version          String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  competencies CourseCompetency[]
+}
+
+model CourseCompetency {
+  id            String @id @default(uuid())
+  courseId       String
+  competencyId  String
+  targetLevel   Int    // Target proficiency level this course addresses
+
+  course      Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, competencyId])
+}
+
+// ─── Gap Records ───────────────────────────────────────────────────────────
+
+model GapRecord {
+  id            String      @id @default(uuid())
+  officerId     String
+  competencyId  String
+  gapSize       Int         // targetLevel - currentLevel
+  priority      GapPriority // HIGH | MED | LOW
+  recommendedCourseIds String[] // Array of course IDs
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  officer    Officer    @relation(fields: [officerId], references: [id], onDelete: Cascade)
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@unique([officerId, competencyId])
+}
+
+// ─── Assessments / MCQs ────────────────────────────────────────────────────
+
+model Assessment {
+  id                      String         @id @default(uuid())
+  question                String
+  options                 Json           // ["A", "B", "C", "D"]
+  correctAnswer           Int            // Index of correct option (0-based)
+  explanation             String?
+  competencyId            String
+  targetLevel             Int
+  bloomLevel              String         // "Remember" | "Understand" | "Apply" | "Analyze" | "Evaluate" | "Create"
+  sourceDocumentChunkId   String?
+  rationale               String         // WHY this question, visible in-product
+  reviewStatus            MCQReviewStatus @default(PENDING)
+  reviewedBy              String?
+  reviewedAt              DateTime?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  competency  Competency   @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+  quizResults QuizResult[]
+}
+
+// ─── Quiz Results ──────────────────────────────────────────────────────────
+
+model QuizResult {
+  id           String   @id @default(uuid())
+  officerId    String
+  assessmentId String
+  score        Int      // Points earned
+  maxScore     Int      // Total points
+  timeTakenMs  Int?     // Time in milliseconds
+  createdAt    DateTime @default(now())
+
+  officer    Officer    @relation(fields: [officerId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+}
+
+// ─── Recommendations ──────────────────────────────────────────────────────
+
+model Recommendation {
+  id         String   @id @default(uuid())
+  officerId  String
+  courseId    String
+  rationale  String   // WHY recommended, visible in-product
+  priority   Int      // Order priority
+  createdAt  DateTime @default(now())
+
+  officer Officer @relation(fields: [officerId], references: [id], onDelete: Cascade)
+}
+
+// ─── ACBP Documents ───────────────────────────────────────────────────────
+
+model ACBPDocument {
+  id                      String     @id @default(uuid())
+  divisionId              String
+  cycleYear               Int
+  lens                    ACBPLens  // NATIONAL_PRIORITIES | EMERGING_TECH | CITIZEN_CENTRICITY
+  interventions           Json      // Array of { type: TRAINING|NON_TRAINING, description, competencies[] }
+  generatedFromGapSnapshotId String?
+  status                  ACBPStatus @default(DRAFT)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  division Division @relation(fields: [divisionId], references: [id])
+}
+
+// ─── Audit Log ─────────────────────────────────────────────────────────────
+
+model AuditLogEntry {
+  id            String   @id @default(uuid())
+  actorId       String
+  actorRole     String   // "OFFicer" | "SUPERVISOR" | "CONTENT_ADMIN" | "DIVISION_ADMIN"
+  action        String   // "APPROVE_MCQ" | "REJECT_MCQ" | "EDIT_MCQ" | "OVERRIDE_PROFICIENCY" etc.
+  entityType    String   // "MCQ" | "PROFILE" | "ACBP" etc.
+  entityId      String
+  beforeState   Json?
+  afterState    Json?
+  rationaleShown String? // What rationale was shown to the user
+  createdAt     DateTime @default(now())
+}
+
+// ─── Documents (uploaded for RAG) ──────────────────────────────────────────
+
+model UploadedDocument {
+  id            String   @id @default(uuid())
+  name          String
+  fileType      String   // "pdf" | "pptx" | "docx"
+  fileUrl       String   // MinIO path
+  fileSize      Int?
+  uploadedBy    String?
+  processed     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  chunks DocumentChunk[]
+}
+
+model DocumentChunk {
+  id           String   @id @default(uuid())
+  documentId   String
+  content      String
+  chunkIndex   Int
+  embedding    Unsupported("vector(1536)")?  // pgvector embedding
+  metadata     Json?    // { page, section, heading }
+  createdAt    DateTime @default(now())
+
+  document UploadedDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+// ─── Translations (Bhashini) ───────────────────────────────────────────────
+
+model Translation {
+  id            String   @id @default(uuid())
+  entityType    String   // "MCQ" | "UI" | "COURSE"
+  entityId      String
+  sourceLang    String   // "en"
+  targetLang    String   // "hi"
+  sourceText    String
+  translatedText String
+  createdAt     DateTime @default(now())
+
+  @@unique([entityType, entityId, targetLang])
+}
